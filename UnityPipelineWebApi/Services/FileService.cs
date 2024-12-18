@@ -1,46 +1,45 @@
 ﻿using System.Diagnostics;
-using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
+using Newtonsoft.Json;
 using UnityPipelineWebApi.Entities;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace UnityPipelineWebApi.Services;
 
-public class FileService(IConfiguration configuration)
+public class FileService(IConfiguration configuration, IMemoryCache memoryCache)
 {
+    private readonly string _projectPath = configuration["ProjectPath"] ?? throw new Exception("ProjectPath not found in appsettings.json");
+    private string UploadsPath => GetUploadsPath();
     private string GetUploadsPath()
     {
-        return configuration["UploadsPath"] ?? Path.Combine(Directory.GetCurrentDirectory(), "..\\..", "Uploads");
+        return Path.Combine(_projectPath, "Assets\\Uploads");
     }
 
-    private string GetUnityExePath()
-    {
-        return configuration["UnityExePath"] ?? throw new Exception("UnityExePath not found in appsettings.json");
-    }
-
-    public async Task<Guid> SaveFile(IFormFile file, string buildName = "")
+    public async Task<Guid> SaveFile(IFormFile file, Guid buildName)
     {
         try
         {
             var fileName = $"{buildName}_{RemoveWhitespace(file.FileName)}";
             var uploadsPath = GetUploadsPath();
-            var filePath = buildName == String.Empty ? Path.Combine(uploadsPath, fileName) : Path.Combine(uploadsPath, buildName, fileName);
-            if (File.Exists(filePath))
-            {
-                return;
-            }
+            var filePath = Path.GetFullPath(uploadsPath + "\\" + fileName);
+
             if (!Directory.Exists(uploadsPath))
             {
                 Directory.CreateDirectory(uploadsPath);
                 
             }
-            if(!Directory.Exists(Path.Combine(uploadsPath, buildName)) && buildName != String.Empty)
+            if(!Directory.Exists(Path.Combine(uploadsPath, buildName.ToString())))
             {
-                Directory.CreateDirectory(Path.Combine(uploadsPath, buildName));
+                Directory.CreateDirectory(Path.Combine(uploadsPath, buildName.ToString()));
             }
-
+            
             await using var
                 stream = new FileStream(filePath,
                     FileMode.Create); //Create or CreateNew? CreateNew will throw an exception if the file already exists
             await file.CopyToAsync(stream);
+            var fileGuid = Guid.NewGuid();
+            memoryCache.Set(fileGuid, filePath);
+            return fileGuid;
         }
         catch (Exception e)
         {
@@ -48,67 +47,21 @@ public class FileService(IConfiguration configuration)
             throw;
         }
     }
-    public async Task<string> PrepareForBuild(List<GameObjectInfo> gameObjectInfos, List<IFormFile> files, bool useGoogleDrive)
+    public async Task SaveGameObjectsToJson(List<GameObjectInfo> gameObjectInfos, Guid buildName)
     {
-        var build = new Build();
-        if (useGoogleDrive)
-        {
-            return "Not implemented";
-        }
-        var gameObjectInfosWithFiles = await ConcatenateFiles(gameObjectInfos, files);
-        List<GameObjectJsonInfo> gameObjectJsonInfos = new List<GameObjectJsonInfo>();
-        foreach (var gameObjectInfo in gameObjectInfosWithFiles)
-        {
-            foreach (var file in gameObjectInfo.Files)
-            {
-                await SaveFile(file, build.Name);
-            }
-            gameObjectJsonInfos.Add(new GameObjectJsonInfo
-            {
-                Position = gameObjectInfo.Position,
-                Rotation = gameObjectInfo.Rotation,
-                Scale = gameObjectInfo.Scale,
-                Components = gameObjectInfo.Files.Select(component => new GameObjectJsonComponent  
-                {
-                    FilePath =  $"{build.Name}_{RemoveWhitespace(component.FileName)}"
-                }).ToList()
-            });
-        }
-        // var json = JsonSerializer.Serialize(gameObjectJsonInfos, GameObjectJsonContext.Default.ListGameObjectJsonComponent);
-        // await SaveJsonData(json, build.Name);
-        return build.Name;
+        var uploadsPath = GetUploadsPath();
+        var filePath = Path.Combine(uploadsPath, buildName.ToString(), "data.json");
+        var json = JsonConvert.SerializeObject(gameObjectInfos);
+        await File.WriteAllTextAsync(filePath, json);
     }
-    
+
     public async Task CleanAfterBuild(string buildName)
     {
         
     }
-    private async Task<List<GameObjectInfoWithFile>> ConcatenateFiles(List<GameObjectInfo> gameObjectInfos, List<IFormFile> files)
-    {
-        var gameObjectInfosWithFiles = new List<GameObjectInfoWithFile>();
-        var i = 0;
-        foreach (var gameObjectInfo in gameObjectInfos)
-        {
-            var gameObjectInfoWithFile = new GameObjectInfoWithFile
-            {
-                Position = gameObjectInfo.Position,
-                Rotation = gameObjectInfo.Rotation,
-                Scale = gameObjectInfo.Scale,
-                Types = gameObjectInfo.ConvertToList(),
-            };
-            foreach (var type in gameObjectInfoWithFile.Types)
-            {
-                gameObjectInfoWithFile.Files.Add(files[i]);
-                i++;
-            }
-            gameObjectInfosWithFiles.Add(gameObjectInfoWithFile);
-        }
-        return gameObjectInfosWithFiles;
-    }
     private async Task SaveJsonData(string json, string buildName)
     {
-        var uploadsPath = GetUploadsPath();
-        var filePath = Path.Combine(uploadsPath, buildName, "data.json");
+        var filePath = Path.Combine(UploadsPath, "data.json");
         await using FileStream createStream = File.Create(filePath);
         await JsonSerializer.SerializeAsync(createStream, json);
     }

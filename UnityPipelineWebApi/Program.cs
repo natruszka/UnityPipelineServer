@@ -4,6 +4,7 @@ var corsPolicy = "CorsPolicy";
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddMemoryCache(); 
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<BuildService>();
 builder.Services.AddSwaggerGen();

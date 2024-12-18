@@ -8,12 +8,11 @@ namespace UnityPipelineWebApi.Controllers;
 public class FileController(FileService fileService) : ControllerBase
 {
     [HttpPost("files")]
-    public async Task<IActionResult> UploadFile(IFormFile file)
+    public async Task<IActionResult> UploadFile(IFormFile file, Guid buildName)
     {
         try
         {
-            await fileService.SaveFile(file);
-            return Created();
+            return Ok(await fileService.SaveFile(file, buildName));
         }
         catch (Exception ex)
         {

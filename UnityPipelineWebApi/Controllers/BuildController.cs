@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using UnityPipelineWebApi.DTOs;
 using UnityPipelineWebApi.Entities;
 using UnityPipelineWebApi.Services;
 
@@ -8,12 +10,19 @@ namespace UnityPipelineWebApi.Controllers;
 [ApiController]
 public class BuildController(FileService fileService, BuildService buildService) : ControllerBase
 {
-    [HttpPost("files")]
-    public async Task<IActionResult> UploadFile(IFormFile file)
+    [HttpPost("builds/start")]
+    public async Task<IActionResult> StartBuild()
+    {
+        Build build = new Build();
+        return Ok(build.Guid);
+    }
+    [HttpPost]
+    public async Task<IActionResult> UploadGameObjectsAndBuild(Guid buildName, [FromBody]List<GameObjectInfoDto> gameObjectInfos/*[FromBody] string gameObjectInfoJson */)
     {
         try
         {
-            await fileService.SaveFile(file);
+            var gameObjects = await buildService.ChangeFileGuidsToPaths(gameObjectInfos);
+            await fileService.SaveGameObjectsToJson(gameObjects, buildName);
             return Ok();
         }
         catch (Exception ex)
@@ -21,17 +30,7 @@ public class BuildController(FileService fileService, BuildService buildService)
             return BadRequest(ex.Message);
         }
     }
-    [HttpPost]
-    public async Task<IActionResult> UploadGameObjectsAndBuild([FromForm] GameObjectInfo gameObjectInfo,[FromForm] List<IFormFile> files,  bool useGoogleDrive)
-    {
-        var gameObjectInfos = new List<GameObjectInfo>();
-        gameObjectInfos.Add(gameObjectInfo);
-        var name = await fileService.PrepareForBuild(gameObjectInfos, files, useGoogleDrive);
-        await buildService.BuildProject(name);
-        await fileService.CleanAfterBuild(name);
-        return Ok(name);
-    }
-    [HttpPost("builds")]
+    [HttpPost("builds/empty")]
     public async Task<IActionResult> BuildEmptyProject()
     {
         try
@@ -48,5 +47,13 @@ public class BuildController(FileService fileService, BuildService buildService)
     public async Task<IActionResult> DownloadBuild(string buildName)
     {
         return Ok(buildName);
+    }
+
+    [HttpPost("build/assetbundles")]
+    public async Task<IActionResult> BuildAssetBundles(Guid buildName)
+    {
+        await buildService.BuildAssetBundles(buildName);
+        await buildService.BuildProject(buildName);
+        return Ok();
     }
 }
