@@ -16,13 +16,15 @@ public class BuildController(FileService fileService, BuildService buildService)
         Build build = new Build();
         return Ok(build.Guid);
     }
-    [HttpPost]
+    [HttpPost("builds/{buildName}")]
     public async Task<IActionResult> UploadGameObjectsAndBuild(Guid buildName, [FromBody]List<GameObjectInfoDto> gameObjectInfos/*[FromBody] string gameObjectInfoJson */)
     {
         try
         {
             var gameObjects = await buildService.ChangeFileGuidsToPaths(gameObjectInfos);
             await fileService.SaveGameObjectsToJson(gameObjects, buildName);
+            await buildService.BuildAssetBundles(buildName);
+            await buildService.BuildProject(buildName);
             return Ok();
         }
         catch (Exception ex)
@@ -46,14 +48,29 @@ public class BuildController(FileService fileService, BuildService buildService)
     [HttpGet("builds")]
     public async Task<IActionResult> DownloadBuild(string buildName)
     {
-        return Ok(buildName);
+        try
+        {
+            var build = await buildService.DownloadBuild(buildName);
+            return File(build, "application/octet-stream", buildName + ".apk");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
-    [HttpPost("build/assetbundles")]
-    public async Task<IActionResult> BuildAssetBundles(Guid buildName)
-    {
-        await buildService.BuildAssetBundles(buildName);
-        await buildService.BuildProject(buildName);
-        return Ok();
-    }
+    // [HttpPost("builds/{buildName}")]
+    // public async Task<IActionResult> BuildApk(Guid buildName)
+    // {
+    //     try
+    //     {
+    //         await buildService.BuildAssetBundles(buildName);
+    //         await buildService.BuildProject(buildName);
+    //         return Ok();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         return BadRequest(ex.Message);
+    //     }
+    // }
 }

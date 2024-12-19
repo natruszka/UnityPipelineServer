@@ -14,13 +14,16 @@ public class FileService(IConfiguration configuration, IMemoryCache memoryCache)
     {
         return Path.Combine(_projectPath, "Assets\\Uploads");
     }
-
+    private string GetUploadsPath(Guid buildName)
+    {
+        return Path.Combine(_projectPath, "Assets\\Uploads", buildName.ToString());
+    }
     public async Task<Guid> SaveFile(IFormFile file, Guid buildName)
     {
         try
         {
             var fileName = $"{buildName}_{RemoveWhitespace(file.FileName)}";
-            var uploadsPath = GetUploadsPath();
+            var uploadsPath = GetUploadsPath(buildName);
             var filePath = Path.GetFullPath(uploadsPath + "\\" + fileName);
 
             if (!Directory.Exists(uploadsPath))
@@ -49,8 +52,7 @@ public class FileService(IConfiguration configuration, IMemoryCache memoryCache)
     }
     public async Task SaveGameObjectsToJson(List<GameObjectInfo> gameObjectInfos, Guid buildName)
     {
-        var uploadsPath = GetUploadsPath();
-        var filePath = Path.Combine(uploadsPath, buildName.ToString(), "data.json");
+        var filePath = Path.Combine(_projectPath,"Assets\\StreamingAssets\\ConfigurationData", buildName.ToString(), "Data.json");
         var json = JsonConvert.SerializeObject(gameObjectInfos);
         await File.WriteAllTextAsync(filePath, json);
     }

@@ -95,6 +95,24 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
             throw;
         }
     }
+
+    public async Task<MemoryStream> DownloadBuild(string buildName)
+    {   
+        if (string.IsNullOrEmpty(buildName))
+        {
+            throw new Exception("Build name is empty");
+        }
+        var buildPath = Path.Combine(_projectPath, "Builds", "Android", buildName +".apk");
+        if (!File.Exists(buildPath))
+        {
+            throw new Exception("Build not found");
+        }
+        var memory = new MemoryStream();
+        await using var stream = new FileStream(buildPath, FileMode.Open);
+        await stream.CopyToAsync(memory);
+        memory.Position = 0;
+        return memory;
+    }
     public async Task<List<GameObjectInfo>> ChangeFileGuidsToPaths(List<GameObjectInfoDto> gameObjectInfoDtos)
     {
         var gameObjectInfos = new List<GameObjectInfo>();
