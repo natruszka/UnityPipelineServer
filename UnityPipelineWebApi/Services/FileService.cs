@@ -31,10 +31,6 @@ public class FileService(IConfiguration configuration, IMemoryCache memoryCache)
                 Directory.CreateDirectory(uploadsPath);
                 
             }
-            if(!Directory.Exists(Path.Combine(uploadsPath, buildName.ToString())))
-            {
-                Directory.CreateDirectory(Path.Combine(uploadsPath, buildName.ToString()));
-            }
             
             await using var
                 stream = new FileStream(filePath,
@@ -54,19 +50,15 @@ public class FileService(IConfiguration configuration, IMemoryCache memoryCache)
     {
         var filePath = Path.Combine(_projectPath,"Assets\\StreamingAssets\\ConfigurationData", buildName.ToString(), "Data.json");
         var json = JsonConvert.SerializeObject(gameObjectInfos);
+        string directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
         await File.WriteAllTextAsync(filePath, json);
     }
-
-    public async Task CleanAfterBuild(string buildName)
-    {
-        
-    }
-    private async Task SaveJsonData(string json, string buildName)
-    {
-        var filePath = Path.Combine(UploadsPath, "data.json");
-        await using FileStream createStream = File.Create(filePath);
-        await JsonSerializer.SerializeAsync(createStream, json);
-    }
+    
     private string RemoveWhitespace(string fileName)
     {
         return fileName.Replace(" ", string.Empty);

@@ -12,9 +12,13 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(corsPolicy,
-        policyBuilder => policyBuilder.AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader());
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                .AllowAnyHeader()
+                .SetIsOriginAllowed((host) => true)
+                .AllowAnyMethod();
+        });
 });
 
 var app = builder.Build();

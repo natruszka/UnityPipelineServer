@@ -8,7 +8,8 @@ namespace UnityPipelineWebApi.Services;
 public class BuildService(IConfiguration configuration, IMemoryCache memoryCache)
 {
     private readonly string _projectPath = configuration["ProjectPath"] ?? throw new Exception("ProjectPath not found in appsettings.json");
-    private readonly string _relativeUploadsPath = "Assets/Uploads";
+    private readonly string _templatePath = configuration["TemplatePath"] ?? throw new Exception("TemplatePath not found in appsettings.json");
+    private readonly string _relativeUploadsPath = "assets/uploads";
     private string UnityExePath => GetUnityExePath();
     private string GetUnityExePath()
     {
@@ -30,11 +31,6 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
 
     public async Task BuildEmptyProject()
     {
-        await CreateProject();
-    }
-
-    private async Task CreateProject()
-    {
         try
         {
             if (!CheckIfDirectoryEmptyOrCreate(_projectPath))
@@ -47,7 +43,7 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
                 StartInfo =
                 {
                     FileName = UnityExePath,
-                    Arguments = $"-batchmode -createProject {_projectPath} -quit",
+                    Arguments = $"-batchmode -cloneFromTemplate \"{_templatePath}\" -createProject \"{_projectPath}\" -quit -logfile projectlog.txt",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -57,6 +53,10 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
 
             process.Start();
             await process.WaitForExitAsync();
+            if (process.ExitCode != 0)
+            {
+                throw new Exception("BuildAssetBundles failed. Check logs for more information.");
+            }
         }
         catch (Exception e)
         {
@@ -74,7 +74,7 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
                 StartInfo =
                 {
                     FileName = UnityExePath,
-                    Arguments = $"-batchmode -quit -projectPath {_projectPath} -executeMethod BatchBuild.BuildAssetBundles -buildName {buildName} -logfile log.txt",
+                    Arguments = $"-batchmode -quit -projectPath \"{_projectPath}\" -executeMethod BatchBuild.BuildAssetBundles -buildName {buildName} -logfile log.txt",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -113,7 +113,7 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
         memory.Position = 0;
         return memory;
     }
-    public async Task<List<GameObjectInfo>> ChangeFileGuidsToPaths(List<GameObjectInfoDto> gameObjectInfoDtos)
+    public async Task<List<GameObjectInfo>> ChangeFileGuidsToPaths(List<GameObjectInfoDto> gameObjectInfoDtos, string buildName)
     {
         var gameObjectInfos = new List<GameObjectInfo>();
         foreach (var gameObjectInfoDto in gameObjectInfoDtos)
@@ -132,7 +132,7 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
                 {
                     Type = component.Type,
                     Path = memoryCache.TryGetValue(component.Guid, out var path) ? path?.ToString() : string.Empty,
-                    RelativePath = CreateRelativePath(path?.ToString() ?? string.Empty)
+                    RelativePath = CreateRelativePath(buildName, path?.ToString() ?? string.Empty)
                 });
             }
             gameObjectInfos.Add(gameObjectInfo);
@@ -140,9 +140,9 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
         return gameObjectInfos;
     }
     
-    private string CreateRelativePath(string path)
+    private string CreateRelativePath(string buildName, string path)
     {
-        return _relativeUploadsPath + "/" + Path.GetFileName(path);
+        return _relativeUploadsPath + "/" + buildName + "/" + Path.GetFileName(path);
     }
     public async Task BuildProject(Guid buildName)
     {
@@ -153,7 +153,7 @@ public class BuildService(IConfiguration configuration, IMemoryCache memoryCache
                 StartInfo =
                 {
                     FileName = UnityExePath,
-                    Arguments = $"-batchmode -quit -projectPath {_projectPath} -executeMethod BatchBuild.BuildApk -buildName {buildName} -logfile log.txt",
+                    Arguments = $"-batchmode -quit -projectPath \"{_projectPath}\" -executeMethod BatchBuild.BuildApk -buildName {buildName} -logfile log.txt",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,

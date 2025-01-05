@@ -3,11 +3,11 @@ using UnityPipelineWebApi.Services;
 
 namespace UnityPipelineWebApi.Controllers;
 
-[Route("api/[controller]")]
+[Route("api")]
 [ApiController]
 public class FileController(FileService fileService) : ControllerBase
 {
-    [HttpPost("files")]
+    [HttpPost("/[controller]/{buildName}")]
     public async Task<IActionResult> UploadFile(IFormFile file, Guid buildName)
     {
         try

@@ -6,22 +6,22 @@ using UnityPipelineWebApi.Services;
 
 namespace UnityPipelineWebApi.Controllers;
 
-[Route("api/[controller]")]
+[Route("api")]
 [ApiController]
 public class BuildController(FileService fileService, BuildService buildService) : ControllerBase
 {
-    [HttpPost("builds/start")]
+    [HttpPost("/[controller]/start")]
     public async Task<IActionResult> StartBuild()
     {
         Build build = new Build();
         return Ok(build.Guid);
     }
-    [HttpPost("builds/{buildName}")]
+    [HttpPost("/[controller]/{buildName}")]
     public async Task<IActionResult> UploadGameObjectsAndBuild(Guid buildName, [FromBody]List<GameObjectInfoDto> gameObjectInfos/*[FromBody] string gameObjectInfoJson */)
     {
         try
         {
-            var gameObjects = await buildService.ChangeFileGuidsToPaths(gameObjectInfos);
+            var gameObjects = await buildService.ChangeFileGuidsToPaths(gameObjectInfos, buildName.ToString());
             await fileService.SaveGameObjectsToJson(gameObjects, buildName);
             await buildService.BuildAssetBundles(buildName);
             await buildService.BuildProject(buildName);
@@ -32,7 +32,7 @@ public class BuildController(FileService fileService, BuildService buildService)
             return BadRequest(ex.Message);
         }
     }
-    [HttpPost("builds/empty")]
+    [HttpPost("/[controller]/empty")]
     public async Task<IActionResult> BuildEmptyProject()
     {
         try
@@ -45,7 +45,7 @@ public class BuildController(FileService fileService, BuildService buildService)
             return BadRequest(ex.Message);
         }
     }
-    [HttpGet("builds")]
+    [HttpGet("/[controller]/{buildName}")]
     public async Task<IActionResult> DownloadBuild(string buildName)
     {
         try
@@ -58,14 +58,13 @@ public class BuildController(FileService fileService, BuildService buildService)
             return BadRequest(ex.Message);
         }
     }
-
-    // [HttpPost("builds/{buildName}")]
+    //
+    // [HttpPost("assetbundleeditor/{buildName}")]
     // public async Task<IActionResult> BuildApk(Guid buildName)
     // {
     //     try
     //     {
     //         await buildService.BuildAssetBundles(buildName);
-    //         await buildService.BuildProject(buildName);
     //         return Ok();
     //     }
     //     catch (Exception ex)
