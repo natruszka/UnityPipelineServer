@@ -22,9 +22,8 @@ public class FileService(IConfiguration configuration, IMemoryCache memoryCache)
     {
         try
         {
-            var fileName = $"{buildName}_{RemoveWhitespace(file.FileName)}";
             var uploadsPath = GetUploadsPath(buildName);
-            var filePath = Path.GetFullPath(uploadsPath + "\\" + fileName);
+            var filePath = Path.GetFullPath(uploadsPath + "\\" + file.FileName);
 
             if (!Directory.Exists(uploadsPath))
             {
