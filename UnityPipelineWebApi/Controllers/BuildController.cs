@@ -17,7 +17,7 @@ public class BuildController(FileService fileService, BuildService buildService)
         return Ok(build.Guid);
     }
     [HttpPost("/[controller]/{buildName}")]
-    public async Task<IActionResult> UploadGameObjectsAndBuild(Guid buildName, [FromBody]List<GameObjectInfoDto> gameObjectInfos/*[FromBody] string gameObjectInfoJson */)
+    public async Task<IActionResult> UploadGameObjectsAndBuild(Guid buildName, [FromBody]List<GameObjectInfoDto> gameObjectInfos)
     {
         try
         {
@@ -46,11 +46,11 @@ public class BuildController(FileService fileService, BuildService buildService)
         }
     }
     [HttpGet("/[controller]/{buildName}")]
-    public async Task<IActionResult> DownloadBuild(string buildName)
+    public async Task<IActionResult> DownloadBuild(Guid buildName)
     {
         try
         {
-            var build = await buildService.DownloadBuild(buildName);
+            var build = await buildService.DownloadBuild(buildName.ToString());
             return File(build, "application/octet-stream", buildName + ".apk");
         }
         catch (Exception ex)
